@@ -1,0 +1,27 @@
+[package]
+name = "crc32c-fast"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "A fast CRC32C implementation for Rust with runtime hardware acceleration and a portable fallback."
+repository = "https://github.com/cryp71c/crc32c-fast"
+
+[dev-dependencies]
+crc32c = "0.6.8"
+criterion = "0.7"
+
+[[bench]]
+name = "api"
+harness = false
+
+[[bench]]
+name = "backend_research"
+harness = false
+required-features = ["bench-internals"]
+
+[features]
+bench-internals = []
+
+[[test]]
+name = "backend_research"
+required-features = ["bench-internals"]
