@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  native:
+    name: Native ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update Rust stable
+        run: rustup update stable
+
+      - name: Use Rust stable
+        run: rustup default stable
+
+      - name: Install Rust components
+        run: rustup component add rustfmt clippy
+
+      - name: Test
+        run: cargo test --all-features --locked
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
+
+  aarch64-cross-check:
+    name: AArch64 cross-check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update Rust stable
+        run: rustup update stable
+
+      - name: Use Rust stable
+        run: rustup default stable
+
+      - name: Install Clippy and AArch64 target
+        run: |
+          rustup component add clippy
+          rustup target add aarch64-unknown-linux-gnu
+
+      - name: Cargo check
+        run: cargo check --target aarch64-unknown-linux-gnu --all-targets --all-features --locked
+
+      - name: Clippy
+        run: cargo clippy --target aarch64-unknown-linux-gnu --all-targets --all-features --locked -- -D warnings
+
+  package:
+    name: Package verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update Rust stable
+        run: rustup update stable
+
+      - name: Use Rust stable
+        run: rustup default stable
+
+      - name: Verify package
+        run: cargo package --locked
