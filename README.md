@@ -5,12 +5,28 @@ A fast CRC32C implementation for Rust with runtime hardware acceleration on supp
 ## Features
 
 - Safe public `crc32c(&[u8]) -> u32` API
+- **Zero runtime dependencies** — nothing is pulled into your dependency tree
 - Runtime CPU feature detection
 - x86_64 hardware acceleration using SSE4.2 CRC32 instructions
-- AArch64 hardware acceleration using the CRC instruction extension
-- Portable software fallback for unsupported CPUs
+- AArch64 hardware acceleration using the CRC instruction extension (little-endian targets)
+- Portable slice-by-8 software fallback for unsupported CPUs
 - Criterion benchmarks for public API and backend research
-- Experimental three-way x86_64 CRC pipeline using SSE4.2 and PCLMULQDQ
+
+Requires Rust 1.88 or later.
+
+## What this is not
+
+CRC32C is a checksum, not a cryptographic hash. It detects accidental
+corruption — bit flips on a wire, a bad disk sector, a truncated transfer.
+
+It provides **no security against a deliberate attacker**. CRC32C is linear
+and trivially forgeable: anyone who can modify your data can recompute a
+matching checksum, or craft a different message with the same one. Do not use
+it for authentication, tamper detection, deduplication of untrusted content,
+or anywhere an adversary influences the input.
+
+For those cases use a cryptographic hash (SHA-2, BLAKE3) or, where a shared
+secret is involved, an HMAC.
 
 ## Usage
 
@@ -31,10 +47,12 @@ The public `crc32c()` function automatically selects the best available backend 
 | Architecture | Backend | Required CPU Feature | Status |
 | --- | --- | --- | --- |
 | x86_64 | Hardware CRC32C | SSE4.2 | Supported |
-| AArch64 | Hardware CRC32C | CRC extension | Supported |
+| AArch64 (little-endian) | Hardware CRC32C | CRC extension | Supported |
 | Other | Portable software implementation | None | Supported |
 
 The x86_64 and AArch64 backends are selected at runtime only when the required CPU feature is detected.
+
+Big-endian AArch64 targets (`aarch64_be-*`) use the portable backend. The CRC extension instructions consume a register least-significant-byte-first, which disagrees with a big-endian load, so the hardware path is compiled out there rather than left to produce a wrong checksum. The portable implementation reads bytes explicitly little-endian and is correct on any byte order.
 
 ## Testing
 

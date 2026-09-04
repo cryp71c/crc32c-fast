@@ -27,6 +27,7 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
+          - ubuntu-24.04-arm
           - windows-latest
 
     steps:
@@ -51,8 +52,28 @@ jobs:
       - name: Clippy
         run: cargo clippy --all-targets --all-features --locked -- -D warnings
 
-  aarch64-cross-check:
-    name: AArch64 cross-check
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Pinned deliberately. Every other job tracks stable, so nothing there
+      # would notice an API that raises the floor advertised in Cargo.toml.
+      # `slice::as_chunks` in src/portable.rs is what currently pins it to
+      # 1.88; keep this in step with `rust-version`.
+      - name: Install Rust 1.88
+        run: rustup toolchain install 1.88 --profile minimal
+
+      # The library only. Dev-dependencies are free to require a newer
+      # compiler than the crate's own MSRV, and often do.
+      - name: Check
+        run: cargo +1.88 check --lib --all-features --locked
+
+  audit:
+    name: Security audit
     runs-on: ubuntu-latest
 
     steps:
@@ -65,16 +86,15 @@ jobs:
       - name: Use Rust stable
         run: rustup default stable
 
-      - name: Install Clippy and AArch64 target
-        run: |
-          rustup component add clippy
-          rustup target add aarch64-unknown-linux-gnu
+      # Installed from source rather than via a third-party action, to keep CI
+      # free of dependencies this crate does not already have.
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
 
-      - name: Cargo check
-        run: cargo check --target aarch64-unknown-linux-gnu --all-targets --all-features --locked
-
-      - name: Clippy
-        run: cargo clippy --target aarch64-unknown-linux-gnu --all-targets --all-features --locked -- -D warnings
+      # The crate has no runtime dependencies, so this covers dev-dependencies
+      # and guards against that changing unnoticed.
+      - name: Audit
+        run: cargo audit
 
   package:
     name: Package verification

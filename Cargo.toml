@@ -2,9 +2,21 @@
 name = "crc32c-fast"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 description = "A fast CRC32C implementation for Rust with runtime hardware acceleration and a portable fallback."
 repository = "https://github.com/cryp71c/crc32c-fast"
+readme = "README.md"
+keywords = ["crc", "crc32c", "checksum", "simd", "castagnoli"]
+categories = ["algorithms", "encoding"]
+
+# The experimental parallel backend is research code that the public API cannot
+# reach. Keep it in the repository, but don't ship it to every consumer.
+exclude = [
+    "benches/experimental",
+    "benches/backend_research.rs",
+    "tests/backend_research.rs",
+]
 
 [dev-dependencies]
 crc32c = "0.6.8"

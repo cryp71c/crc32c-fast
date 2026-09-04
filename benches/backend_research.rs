@@ -2,20 +2,20 @@
 #[path = "./experimental/x86_64_parallel.rs"]
 mod x86_64_parallel;
 
-use crc32c_fast::portable;
+use crc32c_fast::__bench::portable;
 
 #[cfg(target_arch = "x86_64")]
-use crc32c_fast::x86_64;
+use crc32c_fast::__bench::x86_64;
 
-#[cfg(target_arch = "aarch64")]
-use crc32c_fast::aarch64;
+// Matches the gate in the crate root: the AArch64 backend does not exist on
+// big-endian targets, so neither does this benchmark arm.
+#[cfg(all(target_arch = "aarch64", target_endian = "little"))]
+use crc32c_fast::__bench::aarch64;
 
 use std::hint::black_box;
 use std::time::Duration;
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-
-extern crate crc32c;
 
 #[cfg(target_arch = "x86_64")]
 const STREAM_SIZES: &[usize] = &[
@@ -49,7 +49,7 @@ fn bench_crc32c(c: &mut Criterion) {
             b.iter(|| black_box(crc32c::crc32c(black_box(data))));
         });
 
-        #[cfg(target_arch = "aarch64")]
+        #[cfg(all(target_arch = "aarch64", target_endian = "little"))]
         {
             let benchmark_id = BenchmarkId::new("aarch64", size);
 
