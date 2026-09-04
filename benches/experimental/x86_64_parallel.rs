@@ -35,20 +35,12 @@ pub unsafe fn crc32c_u32(data: &[u8]) -> u32 {
     let ptr = data.as_ptr();
     let remaining = data.len();
 
-    // We currently only support complete 768-byte blocks.
-    //
-    // NOTE:
-    // Zero bytes also technically satisfies this assertion:
-    //
-    //      0 % 768 == 0
-    //
-    // but the assembly below does NOT currently support an empty input.
-    // Eventually this should become something like:
-    //
-    //      assert!(remaining != 0 && remaining % PARALLEL_BYTES == 0);
-    //
-    // or, preferably, be handled by the public dispatcher.
-    assert_eq!(remaining % PARALLEL_BYTES, 0);
+    // We currently only support non-zero inputs made up of complete
+    // 768-byte parallel blocks.
+    assert!(
+        remaining != 0 && remaining.is_multiple_of(PARALLEL_BYTES),
+        "input length must be a non-zero multiple of {PARALLEL_BYTES} bytes"
+    );
 
     // Number of complete 768-byte blocks we need to process.
     //

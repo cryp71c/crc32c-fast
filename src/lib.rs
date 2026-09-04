@@ -4,9 +4,6 @@ pub mod x86_64;
 #[cfg(all(target_arch = "x86_64", not(feature = "bench-internals")))]
 mod x86_64;
 
-// #[cfg(target_arch = "x86_64")]
-// mod x86_64_parallel;
-
 #[cfg(all(target_arch = "aarch64", feature = "bench-internals"))]
 pub mod aarch64;
 
@@ -19,6 +16,19 @@ pub mod portable;
 #[cfg(not(feature = "bench-internals"))]
 mod portable;
 
+/// Computes the CRC32C checksum of `data`.
+///
+/// The implementation selects a hardware-accelerated backend at runtime
+/// when supported by the current CPU and otherwise falls back to the
+/// portable implementation.
+///
+/// # Examples
+///
+/// ```
+/// use crc32c_fast::crc32c;
+///
+/// assert_eq!(crc32c(b"123456789"), 0xE3069283);
+/// ```
 pub fn crc32c(data: &[u8]) -> u32 {
     #[cfg(target_arch = "x86_64")]
     {
