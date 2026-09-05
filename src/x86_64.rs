@@ -6,9 +6,9 @@
 /// calling this function.
 ///
 /// Nothing enforces this. The `crc32` instruction is written directly into the
-/// assembly, so it is emitted regardless of `#[target_feature]` and will raise
-/// SIGILL on a CPU without SSE4.2. The runtime check in `crate::crc32c` is the
-/// only guard.
+/// assembly, so it is emitted regardless of `#[target_feature]` and will
+/// trigger an illegal-instruction fault (SIGILL on Unix) on a CPU without SSE4.2.
+/// The runtime check in `crate::crc32c` is the only guard.
 #[target_feature(enable = "sse4.2")]
 pub unsafe fn crc32c_u32(data: &[u8]) -> u32 {
     let ptr = data.as_ptr();
@@ -88,16 +88,15 @@ pub unsafe fn crc32c_u32(data: &[u8]) -> u32 {
     crc32c_accumulator as u32
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[test]
+fn x86_64_known_crc32c_vectors() {
+    if !std::arch::is_x86_feature_detected!("sse4.2") {
+        return;
+    }
 
-    #[test]
-    fn x86_64_known_crc32c_vectors() {
-        for (input, expected) in crate::test_vectors::KNOWN {
-            let result = unsafe { crc32c_u32(input) };
+    for (input, expected) in crate::test_vectors::KNOWN {
+        let result = unsafe { crc32c_u32(input) };
 
-            assert_eq!(result, expected, "CRC32C mismatch for input: {input:?}");
-        }
+        assert_eq!(result, expected, "CRC32C mismatch for input: {input:?}");
     }
 }

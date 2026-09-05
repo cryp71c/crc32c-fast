@@ -1,1 +1,4 @@
 /target
+
+# Personal tracking notes, not part of the published crate.
+/docs

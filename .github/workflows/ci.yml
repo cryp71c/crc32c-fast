@@ -52,6 +52,26 @@ jobs:
       - name: Clippy
         run: cargo clippy --all-targets --all-features --locked -- -D warnings
 
+  big-endian:
+    name: Big-endian compile check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update Rust stable
+        run: rustup update stable
+
+      - name: Use Rust stable
+        run: rustup default stable
+
+      - name: Install PowerPC64 target
+        run: rustup target add powerpc64-unknown-linux-gnu
+
+      - name: Check
+        run: cargo check --target powerpc64-unknown-linux-gnu --lib --all-features --locked
+
   msrv:
     name: MSRV
     runs-on: ubuntu-latest
