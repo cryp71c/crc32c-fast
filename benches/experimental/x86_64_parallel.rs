@@ -213,6 +213,12 @@ pub unsafe fn crc32c_u32(data: &[u8]) -> u32 {
 mod tests {
     #[test]
     fn x86_64_parallel_many_blocks() {
+        if !std::arch::is_x86_feature_detected!("sse4.2")
+            || !std::arch::is_x86_feature_detected!("pclmulqdq")
+        {
+            return;
+        }
+
         let mut buff = vec![0u8; 768 * 64];
 
         for (i, byte) in buff.iter_mut().enumerate() {
@@ -227,6 +233,12 @@ mod tests {
 
     #[test]
     fn x86_64_parallel_known_crc32c_vectors() {
+        if !std::arch::is_x86_feature_detected!("sse4.2")
+            || !std::arch::is_x86_feature_detected!("pclmulqdq")
+        {
+            return;
+        }
+
         let mut buff = [0u8; 768];
 
         for (i, byte) in buff.iter_mut().enumerate() {
@@ -248,6 +260,12 @@ mod tests {
 
     #[test]
     fn x86_64_parallel_two_blocks() {
+        if !std::arch::is_x86_feature_detected!("sse4.2")
+            || !std::arch::is_x86_feature_detected!("pclmulqdq")
+        {
+            return;
+        }
+
         let mut buff = vec![0u8; 768 * 2];
 
         for (i, byte) in buff.iter_mut().enumerate() {

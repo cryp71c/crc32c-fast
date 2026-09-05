@@ -12,10 +12,16 @@ categories = ["algorithms", "encoding"]
 
 # The experimental parallel backend is research code that the public API cannot
 # reach. Keep it in the repository, but don't ship it to every consumer.
-exclude = [
-    "benches/experimental",
-    "benches/backend_research.rs",
-    "tests/backend_research.rs",
+include = [
+    "src/**",
+    "benches/api.rs",
+    "tests/reference.rs",
+    "Cargo.toml",
+    "Cargo.lock",
+    "README.md",
+    "AI_USAGE.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
 ]
 
 [dev-dependencies]

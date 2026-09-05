@@ -2,6 +2,11 @@
 
 A fast CRC32C implementation for Rust with runtime hardware acceleration on supported CPUs. The crate currently provides x86_64 SSE4.2 and AArch64 CRC instruction backends with a portable software fallback.
 
+## AI-assisted development
+
+AI tools were used during portions of the development and review of this project.
+See [AI_USAGE.md](AI_USAGE.md) for the project's AI usage statement.
+
 ## Features
 
 - Safe public `crc32c(&[u8]) -> u32` API

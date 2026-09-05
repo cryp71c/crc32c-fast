@@ -1,8 +1,7 @@
 //! Portable software CRC32C.
 //!
-//! This is the fallback used whenever no hardware CRC instructions are
-//! available, so it runs on every non-x86_64/aarch64 target as well as on
-//! x86_64 CPUs predating SSE4.2.
+//! This is the fallback used whenever no supported hardware CRC backend is
+//! available, including big-endian AArch64 and x86_64 CPUs predating SSE4.2.
 //!
 //! It uses the slice-by-8 table method: eight precomputed 256-entry tables
 //! let us retire eight bytes per iteration using eight *independent* lookups.

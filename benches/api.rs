@@ -14,7 +14,6 @@ fn bench_crc32c(c: &mut Criterion) {
     for size in sizes {
         group.throughput(Throughput::Bytes(size as u64));
 
-        // create a vector of x size with 0xA5 unsigned 8 bit
         let data = vec![0xA5u8; size];
 
         let benchmark_id = BenchmarkId::new("crc32c_fast", size);

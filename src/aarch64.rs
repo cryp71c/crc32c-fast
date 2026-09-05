@@ -12,8 +12,8 @@
 ///
 /// Nothing enforces this. The `crc32c*` instructions are written directly into
 /// the assembly, so they are emitted regardless of `#[target_feature]` and will
-/// raise SIGILL on a CPU without the extension. The runtime check in
-/// `crate::crc32c` is the only guard.
+/// trigger an illegal-instruction fault (SIGILL on Unix) on a CPU without the
+/// CRC extension. The runtime check in `crate::crc32c` is the only guard.
 #[target_feature(enable = "crc")]
 pub unsafe fn crc32c_u32(data: &[u8]) -> u32 {
     let ptr = data.as_ptr();
@@ -25,23 +25,23 @@ pub unsafe fn crc32c_u32(data: &[u8]) -> u32 {
         // Numeric local labels are required; asm! blocks may be duplicated by
         // inlining, which makes named assembler symbols unsafe.
         //
-        //   2 = 8-byte main loop      5 = 1-byte tail
+        //   2 = 8-byte main loop      5 = 4-byte tail
         //   3 = tail dispatch         6 = 2-byte tail
-        //   4 = done                  7 = 4-byte tail
+        //   4 = done                  7 = 1-byte tail
         core::arch::asm!(
             "2:",
-                "cmp {remaining}, #8",
+                "cmp {remaining:x}, #8",
                 "b.lo 3f",
                 "ldr {data_chunk:x}, [{ptr:x}], #8",
                 "crc32cx {crc32c_accumulator:w}, {crc32c_accumulator:w}, {data_chunk:x}",
-                "sub {remaining}, {remaining}, #8",
+                "sub {remaining:x}, {remaining:x}, #8",
                 "b 2b",
 
             "3:",
                 "cbz {remaining:x}, 4f",
-                "tbnz {remaining:x}, #2, 7f",
+                "tbnz {remaining:x}, #2, 5f",
                 "tbnz {remaining:x}, #1, 6f",
-                "tbnz {remaining:x}, #0, 5f",
+                "tbnz {remaining:x}, #0, 7f",
 
                 // Unreachable: the main loop guarantees remaining < 8, so one
                 // of the three tests above always matches a non-zero value.
@@ -50,7 +50,7 @@ pub unsafe fn crc32c_u32(data: &[u8]) -> u32 {
                 // bounds. Never taken, so it costs nothing.
                 "b 4f",
 
-            "7:",
+            "5:",
                 "ldr {data_chunk:w}, [{ptr:x}], #4",
                 "crc32cw {crc32c_accumulator:w}, {crc32c_accumulator:w}, {data_chunk:w}",
                 "sub {remaining:x}, {remaining:x}, #4",
@@ -62,7 +62,7 @@ pub unsafe fn crc32c_u32(data: &[u8]) -> u32 {
                 "sub {remaining:x}, {remaining:x}, #2",
                 "b 3b",
 
-            "5:",
+            "7:",
                 "ldrb {data_chunk:w}, [{ptr:x}], #1",
                 "crc32cb {crc32c_accumulator:w}, {crc32c_accumulator:w}, {data_chunk:w}",
                 "sub {remaining:x}, {remaining:x}, #1",
@@ -86,16 +86,15 @@ pub unsafe fn crc32c_u32(data: &[u8]) -> u32 {
     crc32c_accumulator
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[test]
+fn aarch64_known_crc32c_vectors() {
+    if !std::arch::is_aarch64_feature_detected!("crc") {
+        return;
+    }
 
-    #[test]
-    fn aarch64_known_crc32c_vectors() {
-        for (input, expected) in crate::test_vectors::KNOWN {
-            let result = unsafe { crc32c_u32(input) };
+    for (input, expected) in crate::test_vectors::KNOWN {
+        let result = unsafe { crc32c_u32(input) };
 
-            assert_eq!(result, expected, "CRC32C mismatch for input: {input:?}");
-        }
+        assert_eq!(result, expected, "CRC32C mismatch for input: {input:?}");
     }
 }

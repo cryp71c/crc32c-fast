@@ -38,6 +38,12 @@ impl Rng {
 #[cfg(target_arch = "x86_64")]
 #[test]
 fn parallel_matches_reference_across_block_counts() {
+    if !std::arch::is_x86_feature_detected!("sse4.2")
+        || !std::arch::is_x86_feature_detected!("pclmulqdq")
+    {
+        return;
+    }
+
     let mut rng = Rng(0x243F_6A88_85A3_08D3);
 
     for blocks in 1..=24usize {

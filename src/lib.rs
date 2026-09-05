@@ -99,6 +99,7 @@ pub mod __bench {
 ///
 /// assert_eq!(crc32c(b"123456789"), 0xE3069283);
 /// ```
+#[inline]
 pub fn crc32c(data: &[u8]) -> u32 {
     #[cfg(target_arch = "x86_64")]
     {
