@@ -10,8 +10,7 @@ readme = "README.md"
 keywords = ["crc", "crc32c", "checksum", "simd", "castagnoli"]
 categories = ["algorithms", "encoding"]
 
-# The experimental parallel backend is research code that the public API cannot
-# reach. Keep it in the repository, but don't ship it to every consumer.
+# Keep feature-gated backend research harnesses out of the published package.
 include = [
     "src/**",
     "benches/api.rs",
