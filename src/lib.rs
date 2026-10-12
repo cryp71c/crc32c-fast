@@ -18,7 +18,8 @@
 //!
 //! | Target | Backend | Required feature |
 //! | --- | --- | --- |
-//! | x86_64 | `crc32` (SSE4.2) | `sse4.2` |
+//! | x86_64, 768+ bytes | three-way `crc32` with PCLMULQDQ combining | `sse4.2`, `pclmulqdq` |
+//! | x86_64 fallback | `crc32` (SSE4.2) | `sse4.2` |
 //! | AArch64, little-endian | `crc32c*` (CRC extension) | `crc` |
 //! | anything else | portable slice-by-8 | none |
 //!
@@ -69,7 +70,7 @@ mod portable;
 pub mod __bench {
     #[cfg(target_arch = "x86_64")]
     pub mod x86_64 {
-        pub use crate::x86_64::crc32c_u32;
+        pub use crate::x86_64::{crc32c_pclmul_u32, crc32c_u32};
     }
 
     #[cfg(all(target_arch = "aarch64", target_endian = "little"))]
@@ -104,6 +105,10 @@ pub fn crc32c(data: &[u8]) -> u32 {
     #[cfg(target_arch = "x86_64")]
     {
         if std::arch::is_x86_feature_detected!("sse4.2") {
+            if data.len() >= 768 && std::arch::is_x86_feature_detected!("pclmulqdq") {
+                return unsafe { x86_64::crc32c_pclmul_u32(data) };
+            }
+
             return unsafe { x86_64::crc32c_u32(data) };
         }
     }

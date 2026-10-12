@@ -1,11 +1,4 @@
 #[cfg(target_arch = "x86_64")]
-#[path = "../benches/experimental/x86_64_parallel.rs"]
-mod x86_64_parallel;
-
-// This is NOT an unused import. The module pulled in above by `#[path]` reaches
-// the serial backend through `super::super::x86_64`, which resolves to this
-// binding. Removing it breaks the build.
-#[cfg(target_arch = "x86_64")]
 use crc32c_fast::__bench::x86_64;
 
 /// Deterministic xorshift64* generator, so a failure reproduces exactly and no
@@ -28,8 +21,7 @@ impl Rng {
     }
 }
 
-/// Checks the experimental backend against an *independent* implementation
-/// rather than against our own serial backend.
+/// Checks the PCLMUL backend against an independent implementation.
 ///
 /// This is what actually validates the PCLMULQDQ folding constants K1/K2. The
 /// in-module tests only prove the parallel and serial backends agree with each
@@ -37,7 +29,7 @@ impl Rng {
 /// incorrect checksum. Comparing against the `crc32c` crate rules that out.
 #[cfg(target_arch = "x86_64")]
 #[test]
-fn parallel_matches_reference_across_block_counts() {
+fn pclmul_matches_reference_across_block_counts() {
     if !std::arch::is_x86_feature_detected!("sse4.2")
         || !std::arch::is_x86_feature_detected!("pclmulqdq")
     {
@@ -50,7 +42,7 @@ fn parallel_matches_reference_across_block_counts() {
         let mut data = vec![0u8; 768 * blocks];
         rng.fill(&mut data);
 
-        let actual = unsafe { x86_64_parallel::crc32c_u32(&data) };
+        let actual = unsafe { x86_64::crc32c_pclmul_u32(&data) };
 
         assert_eq!(actual, crc32c::crc32c(&data), "block count {blocks}");
     }
