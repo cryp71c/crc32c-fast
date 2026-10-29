@@ -1,119 +1,137 @@
 # crc32c-fast
 
-A fast CRC32C implementation for Rust with runtime hardware acceleration on supported CPUs. The crate provides x86_64 SSE4.2 and PCLMULQDQ acceleration, an AArch64 CRC instruction backend, and a portable software fallback.
+**Fast CRC32C (Castagnoli) for Rust, with runtime hardware acceleration and a portable fallback.**
 
-## AI-assisted development
+[![CI](https://github.com/cryp71c/crc32c-fast/actions/workflows/ci.yml/badge.svg)](https://github.com/cryp71c/crc32c-fast/actions/workflows/ci.yml)
 
-AI tools were used during portions of the development and review of this project.
-See [AI_USAGE.md](AI_USAGE.md) for the project's AI usage statement.
+`crc32c-fast` provides a simple, safe API for computing CRC32C checksums. It uses CPU instructions when available and falls back to a portable, slice-by-8 software implementation elsewhere.
 
-## Features
+- **Hardware-accelerated on x86_64:** SSE4.2 CRC32 instructions, plus a three-way PCLMULQDQ combining path for larger inputs.
+- **Hardware-accelerated on little-endian AArch64:** the ARM CRC extension.
+- **Portable software fallback:** no CPU-specific instruction requirements; explicit little-endian byte handling.
+- **Zero runtime dependencies.**
+- **Single-shot API:** `crc32c(&[u8]) -> u32`.
 
-- Safe public `crc32c(&[u8]) -> u32` API
-- **Zero runtime dependencies** — nothing is pulled into your dependency tree
-- Runtime CPU feature detection
-- x86_64 hardware acceleration using SSE4.2 CRC32 instructions, with a three-way PCLMULQDQ path for large inputs
-- AArch64 hardware acceleration using the CRC instruction extension (little-endian targets)
-- Portable slice-by-8 software fallback for unsupported CPUs
-- Criterion benchmarks for public API and backend research
+> **CRC32C is not CRC32/IEEE.** This crate implements the Castagnoli polynomial, **not** the CRC32 variant used for Ethernet Frame Check Sequences (FCS). These checksums are not interchangeable.
 
-Requires Rust 1.88 or later.
-
-## What this is not
-
-CRC32C is a checksum, not a cryptographic hash. It detects accidental
-corruption — bit flips on a wire, a bad disk sector, a truncated transfer.
-
-It provides **no security against a deliberate attacker**. CRC32C is linear
-and trivially forgeable: anyone who can modify your data can recompute a
-matching checksum, or craft a different message with the same one. Do not use
-it for authentication, tamper detection, deduplication of untrusted content,
-or anywhere an adversary influences the input.
-
-For those cases use a cryptographic hash (SHA-2, BLAKE3) or, where a shared
-secret is involved, an HMAC.
-
-## Usage
+## Quick start
 
 ```rust
 use crc32c_fast::crc32c;
 
 fn main() {
     let checksum = crc32c(b"123456789");
-
-    assert_eq!(checksum, 0xE3069283);
+    assert_eq!(checksum, 0xE306_9283);
 }
 ```
 
-The public `crc32c()` function automatically selects the best available backend at runtime and falls back to the portable implementation when hardware acceleration is unavailable.
+The API accepts a byte slice and returns its CRC32C checksum as a `u32`. Backend selection is automatic; callers do not need to select CPU features or invoke unsafe code.
 
-## Architecture Support
+**Requirements:** Rust **1.88 or newer** (edition 2024). The library currently uses the Rust standard library; it is **not** a `no_std` crate.
 
-| Architecture | Backend | Required CPU Feature | Status |
-| --- | --- | --- | --- |
-| x86_64, 768+ bytes | Three-way hardware CRC32C with carry-less combining | SSE4.2 and PCLMULQDQ | Supported |
-| x86_64 fallback | Hardware CRC32C | SSE4.2 | Supported |
-| AArch64 (little-endian) | Hardware CRC32C | CRC extension | Supported |
-| Other | Portable software implementation | None | Supported |
+## Architecture support
 
-The x86_64 and AArch64 backends are selected at runtime only when the required CPU features are detected. On x86_64, inputs of at least 768 bytes use the three-way PCLMULQDQ backend when available; smaller inputs and processors without PCLMULQDQ use the SSE4.2 backend.
+| Target | Backend selected | Verification status |
+| --- | --- | --- |
+| **x86_64** | SSE4.2; optionally PCLMULQDQ for inputs ≥ 768 bytes | Covered by existing native CI |
+| **AArch64, little-endian** | ARM CRC extension, when detected; otherwise portable | Covered by existing ARM64 native CI |
+| **i686 (32-bit x86)** | Portable slice-by-8 | **Six tests passed locally** on Rust 1.89; new i686 CI job configured (first run pending) |
+| **PowerPC64, big-endian** | Portable slice-by-8 | Compile-checked in CI; runtime not verified |
+| **Other targets** (including ARMv7, MIPS, and RV32) | Portable fallback where the Rust target supports building the crate | Not individually validated; no hardware-specific backend |
 
-Big-endian AArch64 targets (`aarch64_be-*`) use the portable backend. The CRC extension instructions consume a register least-significant-byte-first, which disagrees with a big-endian load, so the hardware path is compiled out there rather than left to produce a wrong checksum. The portable implementation reads bytes explicitly little-endian and is correct on any byte order.
+**What “portable” means:** targets without an enabled hardware backend compile the same byte-order-independent software implementation. It does **not** mean every Rust target has been built, run, or benchmarked. In particular, ARMv7, MIPS, and RISC-V support should be considered unverified until tested.
+
+The x86_64 hardware backend is **not** currently available on 32-bit x86: i686 uses the software fallback even when its CPU has SSE4.2.
+
+## Backend selection
+
+`crc32c()` checks relevant CPU features at runtime on supported architectures:
+
+| Condition | Implementation |
+| --- | --- |
+| x86_64 + SSE4.2 + PCLMULQDQ + input length ≥ 768 bytes | Three-way CRC32C with carry-less combining |
+| x86_64 + SSE4.2 | Serial hardware CRC32C |
+| Little-endian AArch64 + CRC extension | ARM hardware CRC32C |
+| Otherwise | Portable slice-by-8 |
+
+The **768-byte crossover** was selected using direct benchmarks against the serial SSE4.2 implementation. It is an implementation choice, not a universal performance guarantee; results depend on CPU and workload.
+
+### Portable implementation
+
+The fallback uses **eight 256-entry lookup tables (8 KiB of read-only table data)** to process eight input bytes at a time. It uses `u32` arithmetic and explicit little-endian byte conversions, so checksum results do not depend on the host's byte order.
+
+This is an optimized software backend, not a bit-by-bit reference loop. Its memory footprint may matter on cache-constrained embedded hardware, which is one reason future embedded-specific benchmarking would be useful.
 
 ## Testing
 
-Run the production test suite:
+Run the standard tests:
 
-```powershell
-cargo test
+```bash
+cargo test --locked
 ```
 
-Run all tests, including the feature-gated backend research tests:
+Run all feature-gated tests:
 
-```powershell
-cargo test --all-features
+```bash
+cargo test --all-features --locked
 ```
 
-Check formatting and linting:
+Run formatting and lint checks:
 
-```powershell
+```bash
 cargo fmt -- --check
-cargo clippy --all-targets --all-features -- -D warnings
+cargo clippy --all-targets --all-features --locked -- -D warnings
 ```
 
-## Benchmarks
+The test suite includes known CRC32C vectors, an independent bitwise oracle for the portable implementation, and comparisons against the `crc32c` reference crate across varied input lengths, alignments, and large buffers.
 
-Run the public API benchmark:
+### 32-bit x86 testing
 
-```powershell
+On a Linux x86_64 host with 32-bit system development libraries installed:
+
+```bash
+rustup target add i686-unknown-linux-gnu --toolchain 1.89.0
+cargo +1.89.0 test --target i686-unknown-linux-gnu --lib --locked
+cargo +1.89.0 test --target i686-unknown-linux-gnu --test reference --locked
+```
+
+These commands **passed locally (3 library tests + 3 reference tests)**. The new GitHub Actions i686 job is configured to run both test suites; its first remote run has not yet been verified.
+
+## Benchmarking
+
+Benchmark the public API against the reference crate:
+
+```bash
 cargo bench --bench api
 ```
 
-Run the internal backend research benchmark:
+Compare internal implementations directly:
 
-```powershell
-cargo bench --bench backend_research --features bench-internals
+```bash
+cargo bench --bench backend_comparison --features bench-internals
 ```
 
-The `backend_research` target is intentionally gated behind the `bench-internals` feature because it exposes internal architecture-specific implementations for direct comparison.
+The `backend_comparison` benchmark compares the portable backend, hardware backends when available, and the reference crate. On x86_64 it also explores the PCLMULQDQ crossover and streaming workloads. The `bench-internals` feature exposes **internal unsafe backend functions** for these comparisons and for `tests/backend_validation.rs`, which checks the PCLMULQDQ backend against an independent reference. These internals are **not** a supported public API and may change without notice. Benchmark results depend on CPU features, input size, cache behavior, and compiler settings; test on the hardware you care about before drawing performance conclusions.
 
-## x86_64 PCLMULQDQ Backend
+## Correctness and security
 
-For inputs of at least 768 bytes, the public dispatcher can process three independent 256-byte SSE4.2 CRC chains and combine them using PCLMULQDQ. Remaining bytes are handled by the serial SSE4.2 tail in the same backend.
+CRC32C detects **accidental data corruption**. It is useful for integrity checks where the expected checksum is trusted and the threat is random errors.
 
-Runtime dispatch requires both SSE4.2 and PCLMULQDQ. If either the input or CPU does not meet those conditions, `crc32c()` uses the ordinary SSE4.2 backend or the portable fallback.
+**CRC32C is not a cryptographic hash.** It is linear and forgeable; an attacker who can modify data can also compute a matching CRC32C. Do **not** use it for authentication, adversarial tamper detection, or deduplication of untrusted data. Use a cryptographic hash (for example, SHA-2 or BLAKE3) or an HMAC when authentication is required.
 
-The 768-byte crossover was selected from direct Criterion comparisons between the serial SSE4.2 and three-way PCLMULQDQ implementations. Exact multiples of 768 avoid a serial remainder, while arbitrary input lengths remain fully supported.
+This crate computes **CRC32C (Castagnoli)** using the reflected polynomial `0x82F6_3B78`, **not CRC32/IEEE** (`0xEDB8_8320`). Confirm your protocol's exact checksum variant before using it.
 
-The feature-gated research benchmark retains direct backend comparisons so the crossover can be reevaluated on other x86_64 microarchitectures.
+## Scope and limitations
+
+- The public API currently computes a checksum over one complete byte slice; there is no streaming/incremental API.
+- i686 is functionally verified through the portable path, but does not have a dedicated hardware-accelerated backend.
+- ARMv7, MIPS, and RV32 have not been individually built and runtime-tested for this project.
+- The crate currently requires `std`; `no_std` support is not claimed.
 
 ## License
 
-Licensed under either of:
+Dual-licensed under the [MIT license](LICENSE-MIT) or [Apache License 2.0](LICENSE-APACHE), at your option.
 
-- Apache License, Version 2.0
-- MIT License
+## AI-assisted development
 
-at your option.
-
-See [LICENSE-APACHE](LICENSE-APACHE) and [LICENSE-MIT](LICENSE-MIT) for details.
+AI tools were used during portions of this project's development and review. See [AI_USAGE.md](AI_USAGE.md) for the project's disclosure.
