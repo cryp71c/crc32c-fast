@@ -1,6 +1,6 @@
 [package]
 name = "crc32c-fast"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -10,11 +10,13 @@ readme = "README.md"
 keywords = ["crc", "crc32c", "checksum", "simd", "castagnoli"]
 categories = ["algorithms", "encoding"]
 
-# Keep feature-gated internal benchmarks and validation tests out of the published package.
+# Include production code, benchmarks, validation tests, and project documentation.
 include = [
     "src/**",
     "benches/api.rs",
+    "benches/backend_comparison.rs",
     "tests/reference.rs",
+    "tests/backend_validation.rs",
     "Cargo.toml",
     "Cargo.lock",
     "README.md",
